@@ -43,7 +43,7 @@ func (a *Arg) AsBool(v *bool) *Value  { return a.AsValue(boolValue{v}) }
 type intValue struct{ v *int }
 
 func (v intValue) Set(s string) error {
-	val, err := strconv.ParseInt(s, 0, 64)
+	val, err := strconv.ParseInt(s, 0, strconv.IntSize)
 	if err == nil {
 		*v.v = int(val)
 	}
@@ -52,6 +52,20 @@ func (v intValue) Set(s string) error {
 
 func (f *Flag) AsInt(v *int) *Value { return f.AsValue(intValue{v}) }
 func (a *Arg) AsInt(v *int) *Value  { return a.AsValue(intValue{v}) }
+
+type intSliceValue struct{ v *[]int }
+
+func (v intSliceValue) IsAggregate() bool { return true }
+func (v intSliceValue) Set(s string) error {
+	val, err := strconv.ParseInt(s, 0, strconv.IntSize)
+	if err == nil {
+		*v.v = append(*v.v, int(val))
+	}
+	return nil
+}
+
+func (f *Flag) AsInts(v *[]int) *Value { return f.AsValue(intSliceValue{v}) }
+func (a *Arg) AsInts(v *[]int) *Value  { return a.AsValue(intSliceValue{v}) }
 
 type int8Value struct{ v *int8 }
 
@@ -108,7 +122,7 @@ func (a *Arg) AsInt64(v *int64) *Value  { return a.AsValue(int64Value{v}) }
 type uintValue struct{ v *uint }
 
 func (v uintValue) Set(s string) error {
-	val, err := strconv.ParseUint(s, 0, 64)
+	val, err := strconv.ParseUint(s, 0, strconv.IntSize)
 	if err == nil {
 		*v.v = uint(val)
 	}
