@@ -17,10 +17,11 @@ func TestTokenize(t *testing.T) {
 			[]token{{tokenLong, "foo"}},
 		},
 		"MultipleLongs": {
-			[]string{"--one", "--two", "--three"},
+			[]string{"--one", "--two", "--", "--three"},
 			[]token{
 				{tokenLong, "one"},
 				{tokenLong, "two"},
+				{tokenVerbatim, "--"},
 				{tokenLong, "three"},
 			},
 		},
@@ -28,54 +29,31 @@ func TestTokenize(t *testing.T) {
 			[]string{"-1"},
 			[]token{{tokenShort, "1"}},
 		},
-		"LongWithSeparateValue": {
-			[]string{"--one", "arg"},
+		"MultipleShort": {
+			[]string{"-ab", "-", "-c"},
+			[]token{
+				{tokenShort, "a"},
+				{tokenShort, "b"},
+				{tokenArg, "-"},
+				{tokenShort, "c"},
+			},
+		},
+		"SeparateValues": {
+			[]string{"--one", "arg1", "-2", "arg2"},
 			[]token{
 				{tokenLong, "one"},
-				{tokenArg, "arg"},
+				{tokenArg, "arg1"},
+				{tokenShort, "2"},
+				{tokenArg, "arg2"},
 			},
 		},
 		"LongWithJoinedValue": {
-			[]string{"--one=arg"},
+			[]string{"--one=arg", "--two=--"},
 			[]token{
 				{tokenLong, "one"},
 				{tokenArg, "arg"},
-			},
-		},
-		"ShortWithValue": {
-			[]string{"-1", "arg"},
-			[]token{
-				{tokenShort, "1"},
-				{tokenArg, "arg"},
-			},
-		},
-		"SingleDash": {
-			[]string{"-a", "-", "-b"},
-			[]token{
-				{tokenShort, "a"},
-				{tokenArg, "-"},
-				{tokenShort, "b"},
-			},
-		},
-		"DoubleDash": {
-			[]string{"--foo", "--", "--bar"},
-			[]token{
-				{tokenLong, "foo"},
-				{tokenArg, "--bar"},
-			},
-		},
-		"MixedComplex": { // sanity check for non-trivial args.
-			[]string{"--foo=bar", "-ab", "arg", "-", "-c", "--", "-d", "--baz"},
-			[]token{
-				{tokenLong, "foo"},
-				{tokenArg, "bar"},
-				{tokenShort, "a"},
-				{tokenShort, "b"},
-				{tokenArg, "arg"},
-				{tokenArg, "-"},
-				{tokenShort, "c"},
-				{tokenArg, "-d"},
-				{tokenArg, "--baz"},
+				{tokenLong, "two"},
+				{tokenArg, "--"},
 			},
 		},
 	}
@@ -84,7 +62,7 @@ func TestTokenize(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			tokenizer := newTokenizer(c.args)
 			var actual []token
-			for tok := tokenizer.Next(); tok.Type != tokenEOF; tok = tokenizer.Next() {
+			for tok := tokenizer.Next(false); tok.Type != tokenEOF; tok = tokenizer.Next(false) {
 				actual = append(actual, tok)
 			}
 
@@ -93,63 +71,47 @@ func TestTokenize(t *testing.T) {
 	}
 }
 
-func TestTokenizeNextArg(t *testing.T) {
+func TestTokenizeVerbatim(t *testing.T) {
 	cases := map[string]struct {
 		args      []string
-		skip      int
-		expected  token
-		expectErr bool
+		skipFirst bool
+		expected  []string
 	}{
-		"NoArgs": {expectErr: true},
-		"SingleLong": {
-			args:      []string{"--foo"},
-			expectErr: true,
+		"NoArgs": {},
+		"Longs": {
+			args:     []string{"--one", "--two", "--", "--three"},
+			expected: []string{"--one", "--two", "--", "--three"},
 		},
-		"SingleShort": {
-			args:      []string{"-1"},
-			expectErr: true,
+		"Shorts": {
+			args:     []string{"-1", "-", "-two"},
+			expected: []string{"-1", "-", "-two"},
 		},
-		"LongWithSeparateValue": {
-			args:     []string{"--one", "arg"},
-			skip:     1,
-			expected: token{tokenArg, "arg"},
+		"SplitShort": {
+			args:      []string{"-123"},
+			skipFirst: true,
+			expected:  []string{"23"},
 		},
-		"LongWithJoinedValue": {
-			args:     []string{"--one=arg"},
-			skip:     1,
-			expected: token{tokenArg, "arg"},
-		},
-		"ShortWithJoinedValue": {
-			args:     []string{"-1arg"},
-			skip:     1,
-			expected: token{tokenArg, "arg"},
-		},
-		"SingleDash": {
-			args:     []string{"-ab", "-"},
-			skip:     2,
-			expected: token{tokenArg, "-"},
-		},
-		"DoubleDash": {
-			args:     []string{"--foo", "--", "--bar"},
-			skip:     1,
-			expected: token{tokenArg, "--bar"},
+		"SplitLong": {
+			args:      []string{"--one=arg"},
+			skipFirst: true,
+			expected:  []string{"arg"},
 		},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			tokenizer := newTokenizer(c.args)
-			for i := 0; i < c.skip; i++ {
-				tokenizer.Next()
+			if c.skipFirst {
+				tokenizer.Next(false)
 			}
 
-			actual, err := tokenizer.NextArg()
-			assert.Equal(t, c.expected, actual)
-			if c.expectErr {
-				assert.EqualError(t, err, "expected argument")
-			} else {
-				assert.NoError(t, err)
+			var actual []string
+			for tok := tokenizer.Next(true); tok.Type != tokenEOF; tok = tokenizer.Next(true) {
+				assert.Equal(t, tokenArg, tok.Type)
+				actual = append(actual, tok.Value)
 			}
+
+			assert.Equal(t, c.expected, actual)
 		})
 	}
 }
