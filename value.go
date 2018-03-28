@@ -41,6 +41,15 @@ func (v *Value) Default(s ...string) *Value {
 	return v
 }
 
+func (v *Value) applyDefault() error {
+	for _, d := range v.defaults {
+		if err := v.set(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // IsBoolean returns whether a value is backed by a boolean type.
 func (v *Value) IsBoolean() bool {
 	b, ok := v.setter.(BooleanValue)
