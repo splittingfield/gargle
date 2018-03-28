@@ -1,7 +1,5 @@
 package gargle
 
-import "errors"
-
 /*
 Future:
 - Default help command and flags.
@@ -83,16 +81,16 @@ func (c *Command) Action(action Action) *Command {
 // Parent returns a command's parent command, if any.
 func (c *Command) Parent() *Command { return c.parent }
 
-// AddSubcommand creates and returns a new subcommand.
-func (c *Command) AddSubcommand(name, help string) *Command {
+// AddCommand creates and returns a new subcommand.
+func (c *Command) AddCommand(name, help string) *Command {
 	child := NewCommand(name, help)
 	child.parent = c
 	c.commands = append(c.commands, child)
 	return child
 }
 
-// Subcommands returns a command's subcommnads.
-func (c *Command) Subcommands() []*Command {
+// Commands returns a command's subcommnads.
+func (c *Command) Commands() []*Command {
 	return c.commands[:]
 }
 
@@ -115,9 +113,6 @@ func (c *Command) Flags() []*Flag {
 // AddArg creates a new positional argument under a command. The arg is
 // automatically applied to all subcommands.
 func (c *Command) AddArg(name, help string) *Arg {
-	if lastArg := len(c.args) - 1; lastArg >= 0 && c.args[lastArg].Value().IsAggregate() {
-		panic("no positional argument may follow an aggregate arg")
-	}
 	arg := &Arg{name: name, help: help}
 	c.args = append(c.args, arg)
 	return arg
@@ -130,5 +125,22 @@ func (c *Command) Args() []*Arg {
 
 // Parse reads arguments and executes a command or one of its subcommands.
 func (c *Command) Parse(args []string) error {
-	return errors.New("not implemented")
+	parser := newParser(c, args)
+	if err := parser.Parse(); err != nil {
+		return err
+	}
+
+	// TODO:
+	// Run pre-actions before setting values. This is useful for commands and
+	// flags that short-circuit parsing, like '--help', '-h', '-v', 'help'...
+
+	if err := parser.setValues(); err != nil {
+		return err
+	}
+
+	if c.action == nil {
+		// TODO: Print help.
+		return nil
+	}
+	return c.action(parser.Context())
 }
