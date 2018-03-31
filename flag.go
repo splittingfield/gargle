@@ -1,5 +1,7 @@
 package gargle
 
+import "time"
+
 // Flag is a single named/value argument pair
 type Flag struct {
 	name        string
@@ -10,6 +12,7 @@ type Flag struct {
 	required    bool
 	preAction   Action
 	value       Value
+	defaults    []string
 }
 
 // Name returns a flag's name.
@@ -63,12 +66,18 @@ func (f *Flag) PreAction(action Action) *Flag {
 }
 
 // AsValue configures a flag with a custom backing value.
-func (f *Flag) AsValue(v ValueSetter) *Value {
-	f.value = Value{setter: v}
-	return &f.value
-}
+func (f *Flag) AsValue(v Value) { f.value = v }
 
 // Value returns a flag's backing value.
-func (f *Flag) Value() *Value {
-	return &f.value
-}
+func (f *Flag) Value() Value { return f.value }
+
+func (f *Flag) AsBool(v *bool)              { f.AsValue((*boolValue)(v)) }
+func (f *Flag) AsString(v *string)          { f.AsValue((*stringValue)(v)) }
+func (f *Flag) AsStrings(v *[]string)       { f.AsValue((*stringSliceValue)(v)) }
+func (f *Flag) AsInt(v *int)                { f.AsValue((*intValue)(v)) }
+func (f *Flag) AsInts(v *[]int)             { f.AsValue((*intSliceValue)(v)) }
+func (f *Flag) AsInt64(v *int64)            { f.AsValue((*int64Value)(v)) }
+func (f *Flag) AsUint(v *uint)              { f.AsValue((*uintValue)(v)) }
+func (f *Flag) AsUint64(v *uint64)          { f.AsValue((*uint64Value)(v)) }
+func (f *Flag) AsFloat64(v *float64)        { f.AsValue((*float64Value)(v)) }
+func (f *Flag) AsDuration(v *time.Duration) { f.AsValue((*durationValue)(v)) }

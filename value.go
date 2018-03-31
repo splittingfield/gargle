@@ -1,10 +1,8 @@
 package gargle
 
-import "errors"
-
-// ValueSetter is an interface which signals that a value can be parsed from a
-// string. It must be implemented by all value types.
-type ValueSetter interface {
+// Value is an interface implemented by all value types.
+type Value interface {
+	String() string
 	Set(s string) error
 }
 
@@ -19,6 +17,12 @@ type BooleanValue interface {
 	IsBoolean() bool
 }
 
+// IsBoolean returns whether a value is of boolean type.
+func IsBoolean(v Value) bool {
+	b, ok := v.(BooleanValue)
+	return ok && b.IsBoolean()
+}
+
 // AggregateValue is an optional interface which may be implemented by aggregate
 // types, such as slices and maps. If present, the value's Set function will be
 // called once for each instance of an argument parsed.
@@ -26,45 +30,36 @@ type AggregateValue interface {
 	IsAggregate() bool
 }
 
-// Value encapsulates a the backing value of a flag or argument and its defaults.
-type Value struct {
-	setter   ValueSetter
-	defaults []string
-}
-
-// Default sets default value(s) which are to be applied if a value is left unset.
-func (v *Value) Default(s ...string) *Value {
-	if len(s) > 1 && !v.IsAggregate() {
-		panic("only aggregate values may have multiple defaults")
-	}
-	v.defaults = s
-	return v
-}
-
-func (v *Value) applyDefault() error {
-	for _, d := range v.defaults {
-		if err := v.set(d); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// IsBoolean returns whether a value is backed by a boolean type.
-func (v *Value) IsBoolean() bool {
-	b, ok := v.setter.(BooleanValue)
-	return ok && b.IsBoolean()
-}
-
 // IsAggregate returns whether a value can be set multiple times.
-func (v *Value) IsAggregate() bool {
-	agg, ok := v.setter.(AggregateValue)
+func IsAggregate(v Value) bool {
+	agg, ok := v.(AggregateValue)
 	return ok && agg.IsAggregate()
 }
 
-func (v *Value) set(s string) error {
-	if v.setter == nil {
-		return errors.New("value has no type and cannot be set")
+type defaultValue struct {
+	value    Value
+	defaults []string
+}
+
+// WithDefault wraps a value with string default value(s) which will be applied
+// after parsing if (and only if) a value is left unset.
+func WithDefault(v Value, s ...string) Value {
+	if len(s) > 1 && !IsAggregate(v) {
+		panic("only aggregate values may have multiple defaults")
 	}
-	return v.setter.Set(s)
+	return defaultValue{v, s}
+}
+
+func (v defaultValue) String() string     { return v.value.String() }
+func (v defaultValue) Set(s string) error { return v.value.Set(s) }
+func applyDefault(v Value) error {
+	def, ok := v.(defaultValue)
+	if ok {
+		for _, d := range def.defaults {
+			if err := def.value.Set(d); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

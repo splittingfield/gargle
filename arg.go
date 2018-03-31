@@ -1,5 +1,7 @@
 package gargle
 
+import "time"
+
 // Arg represents a positional argument attached to a command.
 type Arg struct {
 	name      string
@@ -42,12 +44,18 @@ func (a *Arg) PreAction(action Action) *Arg {
 }
 
 // AsValue configures an argument with a custom backing value.
-func (a *Arg) AsValue(v ValueSetter) *Value {
-	a.value = Value{setter: v}
-	return &a.value
-}
+func (a *Arg) AsValue(v Value) { a.value = v }
 
 // Value returns an argument's backing value.
-func (a *Arg) Value() *Value {
-	return &a.value
-}
+func (a *Arg) Value() Value { return a.value }
+
+func (a *Arg) AsBool(v *bool)              { a.AsValue((*boolValue)(v)) }
+func (a *Arg) AsString(v *string)          { a.AsValue((*stringValue)(v)) }
+func (a *Arg) AsStrings(v *[]string)       { a.AsValue((*stringSliceValue)(v)) }
+func (a *Arg) AsInt(v *int)                { a.AsValue((*intValue)(v)) }
+func (a *Arg) AsInts(v *[]int)             { a.AsValue((*intSliceValue)(v)) }
+func (a *Arg) AsInt64(v *int64)            { a.AsValue((*int64Value)(v)) }
+func (a *Arg) AsUint(v *uint)              { a.AsValue((*uintValue)(v)) }
+func (a *Arg) AsUint64(v *uint64)          { a.AsValue((*uint64Value)(v)) }
+func (a *Arg) AsFloat64(v *float64)        { a.AsValue((*float64Value)(v)) }
+func (a *Arg) AsDuration(v *time.Duration) { a.AsValue((*durationValue)(v)) }

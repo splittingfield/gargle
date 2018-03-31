@@ -81,11 +81,11 @@ func (p *parser) Parse() error {
 				flag, ok = p.flags[token.Value[3:]]
 				negate = true
 			}
-			if !ok || negate && !flag.Value().IsBoolean() {
+			if !ok || negate && !IsBoolean(flag.Value()) {
 				return fmt.Errorf("unknown flag: %s", token.Value)
 			}
 
-			if flag.Value().IsBoolean() {
+			if IsBoolean(flag.Value()) {
 				value := strconv.FormatBool(!negate)
 				p.parsed = append(p.parsed, element{flag, token, value})
 				break
@@ -102,7 +102,7 @@ func (p *parser) Parse() error {
 			if !ok {
 				return fmt.Errorf("unknown flag: %s", token.Value)
 			}
-			if flag.Value().IsBoolean() {
+			if IsBoolean(flag.Value()) {
 				p.parsed = append(p.parsed, element{flag, token, "true"})
 				break
 			}
@@ -131,7 +131,7 @@ func (p *parser) Parse() error {
 			}
 
 			arg := p.args[0]
-			if !arg.Value().IsAggregate() {
+			if !IsAggregate(arg.Value()) {
 				p.args = p.args[1:]
 			}
 			p.parsed = append(p.parsed, element{arg, token, token.Value})
@@ -141,7 +141,7 @@ func (p *parser) Parse() error {
 
 func (p *parser) setValues() error {
 	type settable interface {
-		Value() *Value
+		Value() Value
 	}
 
 	// Set all values we saw during parsing.
@@ -153,7 +153,7 @@ func (p *parser) setValues() error {
 		}
 
 		seen[element.entity] = true
-		if err := val.Value().set(element.value); err != nil {
+		if err := val.Value().Set(element.value); err != nil {
 			return fmt.Errorf("invalid argument for %s: %s", element.token, err.Error())
 		}
 	}
@@ -173,7 +173,7 @@ func (p *parser) setValues() error {
 			if flag.IsRequired() {
 				return fmt.Errorf("missing required flag --%s", flag.Name())
 			}
-			if err := flag.Value().applyDefault(); err != nil {
+			if err := applyDefault(flag.Value()); err != nil {
 				return err
 			}
 		}
@@ -185,7 +185,7 @@ func (p *parser) setValues() error {
 			if arg.IsRequired() {
 				return fmt.Errorf("missing required argument %s", arg.Name())
 			}
-			if err := arg.Value().applyDefault(); err != nil {
+			if err := applyDefault(arg.Value()); err != nil {
 				return err
 			}
 		}
