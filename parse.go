@@ -9,7 +9,7 @@ import (
 // entity is a parsed object with an optional associated value.
 type entity struct {
 	object interface{}
-	token  token
+	name   string
 	value  string
 }
 
@@ -59,7 +59,7 @@ func (p *parser) setContext(context *Command) {
 		}
 	}
 
-	p.args = append(p.args, context.Args()...)
+	p.args = context.Args()
 	p.context = context
 }
 
@@ -86,43 +86,46 @@ func (p *parser) Parse() ([]entity, error) {
 				return parsed, fmt.Errorf("unknown flag: %s", token.Value)
 			}
 
+			var value string
 			if IsBoolean(flag.Value) {
-				value := strconv.FormatBool(!negate)
-				parsed = append(parsed, entity{flag, token, value})
-				break
+				value = strconv.FormatBool(!negate)
+			} else {
+				argToken := p.tokenizer.Next(true)
+				if argToken.Type == tokenEOF {
+					return parsed, fmt.Errorf("%s must have a value", token)
+				}
+				value = argToken.Value
 			}
-
-			argToken := p.tokenizer.Next(true)
-			if argToken.Type == tokenEOF {
-				return parsed, fmt.Errorf("%s must have a value", token)
-			}
-			parsed = append(parsed, entity{flag, token, argToken.Value})
+			parsed = append(parsed, entity{flag, token.String(), value})
 
 		case tokenShort:
 			flag, ok := p.shortFlags[token.Value]
 			if !ok {
 				return parsed, fmt.Errorf("unknown flag: %s", token.Value)
 			}
-			if IsBoolean(flag.Value) {
-				parsed = append(parsed, entity{flag, token, "true"})
-				break
-			}
 
-			argToken := p.tokenizer.Next(true)
-			if argToken.Type == tokenEOF {
-				return parsed, fmt.Errorf("%s must have a value", token)
+			var value string
+			if IsBoolean(flag.Value) {
+				value = "true"
+			} else {
+				argToken := p.tokenizer.Next(true)
+				if argToken.Type == tokenEOF {
+					return parsed, fmt.Errorf("%s must have a value", token)
+				}
+				value = argToken.Value
 			}
-			parsed = append(parsed, entity{flag, token, argToken.Value})
+			parsed = append(parsed, entity{flag, token.String(), value})
 
 		case tokenArg:
 			// Commands take precedence over positional arguments. Any remaining
-			// unparsed args are preserved for the next context.
+			// unparsed args are discarded for the next context.
 			if len(p.commands) != 0 {
 				command, ok := p.commands[token.Value]
 				if !ok {
 					fullName := p.context.FullName() + " " + token.Value
 					return parsed, fmt.Errorf("%q is not a valid command", fullName)
 				}
+				parsed = append(parsed, entity{command, command.Name, token.Value})
 				p.setContext(command)
 				break
 			}
@@ -135,7 +138,7 @@ func (p *parser) Parse() ([]entity, error) {
 			if !IsAggregate(arg.Value) {
 				p.args = p.args[1:]
 			}
-			parsed = append(parsed, entity{arg, token, token.Value})
+			parsed = append(parsed, entity{arg, arg.Name, token.Value})
 		}
 	}
 }

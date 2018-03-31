@@ -113,7 +113,7 @@ func (c *Command) Parse(args []string) error {
 		return parseErr
 	}
 
-	if err := setValues(parser.Context(), parsed); err != nil {
+	if err := setValues(context, parsed); err != nil {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func (c *Command) Parse(args []string) error {
 		// TODO: Print help.
 		return nil
 	}
-	return c.Action(parser.Context())
+	return context.Action(context)
 }
 
 func (c *Command) invokePre(context *Command) error {
@@ -160,7 +160,7 @@ func setValues(context *Command, parsed []entity) error {
 
 		seen[e.object] = true
 		if err := val.setValue(e.value); err != nil {
-			return fmt.Errorf("invalid argument for %s: %s", e.token, err.Error())
+			return fmt.Errorf("invalid argument for %s: %s", e.name, err.Error())
 		}
 	}
 
