@@ -26,13 +26,13 @@ func TestParseFlags(t *testing.T) {
 	var b bool
 	var a []int
 
-	stringDefault := WithDefault((*stringValue)(&s), "default")
-
-	command := Command{Action: action.invoke}
-	command.AddFlag("int", "").WithShort('i').AsInt(&i)
-	command.AddFlag("string", "").WithShort('s').AsValue(stringDefault)
-	command.AddFlag("bool", "").WithShort('b').AsBool(&b)
-	command.AddFlag("array", "").WithShort('a').AsInts(&a)
+	command := &Command{Action: action.invoke}
+	command.AddFlag(
+		&Flag{Name: "int", Short: 'i', Value: IntVar(&i)},
+		&Flag{Name: "string", Short: 's', Value: WithDefault(StringVar(&s), "default")},
+		&Flag{Name: "bool", Short: 'b', Value: BoolVar(&b)},
+		&Flag{Name: "array", Short: 'a', Value: IntsVar(&a)},
+	)
 
 	cases := map[string]struct {
 		args []string

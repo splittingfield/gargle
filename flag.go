@@ -1,83 +1,48 @@
 package gargle
 
-import "time"
-
 // Flag is a single named/value argument pair
 type Flag struct {
-	name        string
-	help        string
-	placeholder string
-	short       rune
-	hidden      bool
-	required    bool
-	preAction   Action
-	value       Value
-	defaults    []string
+	// Name is an optional unprefixed long form of the flag.
+	// For example, "help" would match the argument "--help".
+	Name string
+
+	// Help is text describing the flag. It may be a single line or an an
+	// arbitrarily long description. Usage writers generally assume the first
+	// line can serve independently as a short-form description.
+	Help string
+
+	// Placeholder is an optional override for the name of a flag's value.
+	Placeholder string
+
+	// Short is an optional single-character short form for the flag.
+	// For example, 'h' would match the argument "-h".
+	Short rune
+
+	// Hidden sets whether the flag should be omitted from usage text.
+	Hidden bool
+
+	// Required sets the flag to generate an error when absent.
+	Required bool
+
+	// PreAction is a function invoked after parsing, but before values are set.
+	// Each pre-action will be executed unconditionally in the order encountered
+	// during parsing.
+	PreAction Action
+
+	// Value is the backing value for the flag.
+	Value Value
 }
 
-// Name returns a flag's name.
-func (f *Flag) Name() string { return f.name }
-
-// Help returns a flag's description.
-func (f *Flag) Help() string { return f.help }
-
-// WithPlaceholder overrides the placeholder name for a flag's value.
-func (f *Flag) WithPlaceholder(name string) *Flag {
-	f.placeholder = name
-	return f
+func (f *Flag) invokePre(c *Command) error {
+	if f.PreAction != nil {
+		return f.PreAction(c)
+	}
+	return nil
 }
 
-// Placeholder returns the name of a flag's value. By default this is the flag's
-// name in all caps.
-func (f *Flag) Placeholder() string { return f.placeholder }
-
-// WithShort configures a flag with a single-character short form.
-func (f *Flag) WithShort(s rune) *Flag {
-	f.short = s
-	return f
+func (f *Flag) setValue(s string) error {
+	if f.Value != nil {
+		return f.Value.Set(s)
+	}
+	return nil
 }
-
-// Short returns a flag's single-character short form.
-func (f *Flag) Short() rune { return f.short }
-
-// Hidden configures a flag to be omitted from help text.
-func (f *Flag) Hidden() *Flag {
-	f.hidden = true
-	return f
-}
-
-// IsHidden returns whether a flag should be omitted from help text.
-func (f *Flag) IsHidden() bool { return f.hidden }
-
-// Required configures a flag to produce an error when not present.
-func (f *Flag) Required() *Flag {
-	f.required = true
-	return f
-}
-
-// IsRequired returns whether a flag must be present.
-func (f *Flag) IsRequired() bool { return f.required }
-
-// PreAction sets a function to invoke when a flag is encountered. The action is
-// run after parsing, but before values are set.
-func (f *Flag) PreAction(action Action) *Flag {
-	f.preAction = action
-	return f
-}
-
-// AsValue configures a flag with a custom backing value.
-func (f *Flag) AsValue(v Value) { f.value = v }
-
-// Value returns a flag's backing value.
-func (f *Flag) Value() Value { return f.value }
-
-func (f *Flag) AsBool(v *bool)              { f.AsValue((*boolValue)(v)) }
-func (f *Flag) AsString(v *string)          { f.AsValue((*stringValue)(v)) }
-func (f *Flag) AsStrings(v *[]string)       { f.AsValue((*stringSliceValue)(v)) }
-func (f *Flag) AsInt(v *int)                { f.AsValue((*intValue)(v)) }
-func (f *Flag) AsInts(v *[]int)             { f.AsValue((*intSliceValue)(v)) }
-func (f *Flag) AsInt64(v *int64)            { f.AsValue((*int64Value)(v)) }
-func (f *Flag) AsUint(v *uint)              { f.AsValue((*uintValue)(v)) }
-func (f *Flag) AsUint64(v *uint64)          { f.AsValue((*uint64Value)(v)) }
-func (f *Flag) AsFloat64(v *float64)        { f.AsValue((*float64Value)(v)) }
-func (f *Flag) AsDuration(v *time.Duration) { f.AsValue((*durationValue)(v)) }

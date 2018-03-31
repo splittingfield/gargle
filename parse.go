@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// element is a parsed entity with an optional associated value.
-type element struct {
-	entity interface{}
+// entity is a parsed object with an optional associated value.
+type entity struct {
+	object interface{}
 	token  token
 	value  string
 }
@@ -18,7 +18,6 @@ type element struct {
 type parser struct {
 	tokenizer *tokenizer
 	context   *Command
-	parsed    []element
 
 	// Representations including all parseable entities.
 	commands   map[string]*Command
@@ -52,9 +51,10 @@ func (p *parser) setContext(context *Command) {
 	}
 
 	for _, flag := range context.Flags() {
-		p.flags[flag.Name()] = flag
-		if short := flag.Short(); short != 0 {
-			s := []rune{short}
+		if f := flag.Name; f != "" {
+			p.flags[f] = flag
+		}
+		if s := flag.Short; s != 0 {
 			p.shortFlags[string(s)] = flag
 		}
 	}
@@ -63,12 +63,13 @@ func (p *parser) setContext(context *Command) {
 	p.context = context
 }
 
-func (p *parser) Parse() error {
+func (p *parser) Parse() ([]entity, error) {
+	var parsed []entity
 	verbatim := false
 	for {
 		switch token := p.tokenizer.Next(verbatim); token.Type {
 		case tokenEOF:
-			return nil
+			return parsed, nil
 
 		case tokenVerbatim:
 			verbatim = true
@@ -81,37 +82,37 @@ func (p *parser) Parse() error {
 				flag, ok = p.flags[token.Value[3:]]
 				negate = true
 			}
-			if !ok || negate && !IsBoolean(flag.Value()) {
-				return fmt.Errorf("unknown flag: %s", token.Value)
+			if !ok || negate && !IsBoolean(flag.Value) {
+				return parsed, fmt.Errorf("unknown flag: %s", token.Value)
 			}
 
-			if IsBoolean(flag.Value()) {
+			if IsBoolean(flag.Value) {
 				value := strconv.FormatBool(!negate)
-				p.parsed = append(p.parsed, element{flag, token, value})
+				parsed = append(parsed, entity{flag, token, value})
 				break
 			}
 
 			argToken := p.tokenizer.Next(true)
 			if argToken.Type == tokenEOF {
-				return fmt.Errorf("%s must have a value", token)
+				return parsed, fmt.Errorf("%s must have a value", token)
 			}
-			p.parsed = append(p.parsed, element{flag, token, argToken.Value})
+			parsed = append(parsed, entity{flag, token, argToken.Value})
 
 		case tokenShort:
 			flag, ok := p.shortFlags[token.Value]
 			if !ok {
-				return fmt.Errorf("unknown flag: %s", token.Value)
+				return parsed, fmt.Errorf("unknown flag: %s", token.Value)
 			}
-			if IsBoolean(flag.Value()) {
-				p.parsed = append(p.parsed, element{flag, token, "true"})
+			if IsBoolean(flag.Value) {
+				parsed = append(parsed, entity{flag, token, "true"})
 				break
 			}
 
 			argToken := p.tokenizer.Next(true)
 			if argToken.Type == tokenEOF {
-				return fmt.Errorf("%s must have a value", token)
+				return parsed, fmt.Errorf("%s must have a value", token)
 			}
-			p.parsed = append(p.parsed, element{flag, token, argToken.Value})
+			parsed = append(parsed, entity{flag, token, argToken.Value})
 
 		case tokenArg:
 			// Commands take precedence over positional arguments. Any remaining
@@ -120,75 +121,21 @@ func (p *parser) Parse() error {
 				command, ok := p.commands[token.Value]
 				if !ok {
 					fullName := p.context.FullName() + " " + token.Value
-					return fmt.Errorf("%q is not a valid command", fullName)
+					return parsed, fmt.Errorf("%q is not a valid command", fullName)
 				}
 				p.setContext(command)
 				break
 			}
 
 			if len(p.args) == 0 {
-				return fmt.Errorf("unexpected argument: %q", token.Value)
+				return parsed, fmt.Errorf("unexpected argument: %q", token.Value)
 			}
 
 			arg := p.args[0]
-			if !IsAggregate(arg.Value()) {
+			if !IsAggregate(arg.Value) {
 				p.args = p.args[1:]
 			}
-			p.parsed = append(p.parsed, element{arg, token, token.Value})
+			parsed = append(parsed, entity{arg, token, token.Value})
 		}
 	}
-}
-
-func (p *parser) setValues() error {
-	type settable interface {
-		Value() Value
-	}
-
-	// Set all values we saw during parsing.
-	seen := map[interface{}]bool{}
-	for _, element := range p.parsed {
-		val, ok := element.entity.(settable)
-		if !ok {
-			continue
-		}
-
-		seen[element.entity] = true
-		if err := val.Value().Set(element.value); err != nil {
-			return fmt.Errorf("invalid argument for %s: %s", element.token, err.Error())
-		}
-	}
-
-	var stack []*Command
-	for command := p.context; command != nil; command = command.Parent() {
-		stack = append(stack, command)
-	}
-
-	// Validate unset arguments/flags and apply defaults.
-	for i := len(stack) - 1; i >= 0; i-- {
-		command := stack[i]
-		for _, flag := range command.Flags() {
-			if seen[flag] {
-				continue
-			}
-			if flag.IsRequired() {
-				return fmt.Errorf("missing required flag --%s", flag.Name())
-			}
-			if err := applyDefault(flag.Value()); err != nil {
-				return err
-			}
-		}
-
-		for _, arg := range command.Args() {
-			if seen[arg] {
-				continue
-			}
-			if arg.IsRequired() {
-				return fmt.Errorf("missing required argument %s", arg.Name())
-			}
-			if err := applyDefault(arg.Value()); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
