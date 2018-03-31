@@ -48,7 +48,7 @@ func (p *parser) Context() *Command {
 func (p *parser) setContext(context *Command) {
 	p.commands = map[string]*Command{}
 	for _, command := range context.Commands() {
-		p.commands[command.Name()] = command
+		p.commands[command.Name] = command
 	}
 
 	for _, flag := range context.Flags() {
@@ -77,7 +77,7 @@ func (p *parser) Parse() error {
 			negate := false
 			flag, ok := p.flags[token.Value]
 			if !ok && strings.HasPrefix(token.Value, "no-") {
-				// This may be a boolean flag; try it's negated form.
+				// This may be a boolean flag; try its negated form.
 				flag, ok = p.flags[token.Value[3:]]
 				negate = true
 			}

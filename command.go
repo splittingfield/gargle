@@ -18,78 +18,62 @@ Future:
 // context is actively parsed command, i.e. the last encountered during parsing.
 type Action func(context *Command) error
 
-// Command is a parseable argument which executes an action when invoked. It may
-// optionally include any number of subcommands, and may itself be a subcommand.
+// Command is a hierarchical structured argument. It can serve as an application
+// entry point, a command group, or both.
 type Command struct {
-	name      string
-	help      string
-	hidden    bool
-	preAction Action
-	action    Action
-	parent    *Command
+	// Name of the command.
+	Name string
 
+	// Help is arbitrary text describing the command. It may be a single line or
+	// an arbitrarily long description. Usage writers generally assume the first
+	// line can serve independently as a short-form description.
+	Help string
+
+	// Hidden specifies whether the command should be omitted from usage text.
+	Hidden bool
+
+	// PreAction is a function invoked after parsing but before values are set.
+	// Each pre-action will be executed unconditionally in the order encountered
+	// during parsing.
+	PreAction Action
+
+	// Action is a function invoked after parsing and argument validation. Only
+	// the active context, i.e. the latest command parsed, is invoked.
+	Action Action
+
+	parent   *Command
 	commands []*Command
 	flags    []*Flag
 	args     []*Arg
 }
 
-// NewCommand creates a new root-level command. This is often an entry point to an application.
-func NewCommand(name, help string) *Command {
-	if name == "" {
-		panic("commands must have a name")
-	}
-	return &Command{name: name, help: help}
-}
-
-// Name returns a command's name.
-func (c *Command) Name() string { return c.name }
-
 // FullName returns a command's fully qualified name.
 func (c *Command) FullName() string {
 	if c.parent == nil {
-		return c.name
+		return c.Name
 	}
-	return c.parent.FullName() + " " + c.name
-}
-
-// Help returns a command's description.
-func (c *Command) Help() string { return c.help }
-
-// Hidden configures a command to be omitted from help text.
-func (c *Command) Hidden() *Command {
-	c.hidden = true
-	return c
-}
-
-// IsHidden returns whether a command should be omitted from help text.
-func (c *Command) IsHidden() bool { return c.hidden }
-
-// PreAction sets a function to be run after parsing, but before values are set.
-// Pre-actions are executed parent-to-child, in order of declaration.
-func (c *Command) PreAction(action Action) *Command {
-	c.preAction = action
-	return c
-}
-
-// Action assigns a function to call when a command is invoked. Only the active
-// command's action is invoked; parent actions are ignored.
-func (c *Command) Action(action Action) *Command {
-	c.action = action
-	return c
+	return c.parent.FullName() + " " + c.Name
 }
 
 // Parent returns a command's parent command, if any.
 func (c *Command) Parent() *Command { return c.parent }
 
-// AddCommand creates and returns a new subcommand.
-func (c *Command) AddCommand(name, help string) *Command {
-	child := NewCommand(name, help)
-	child.parent = c
-	c.commands = append(c.commands, child)
-	return child
+// AddCommand adds any number of child commands. It is an error to add the same
+// child command to multiple parents, or to add a command to itself.
+func (c *Command) AddCommand(commands ...*Command) {
+	for _, cmd := range commands {
+		if cmd == c {
+			panic("cannot add a command to itself")
+		}
+		if cmd.parent != nil {
+			panic("commands may only be added to one parent")
+		}
+		cmd.parent = c
+		c.commands = append(c.commands, cmd)
+	}
 }
 
-// Commands returns a command's subcommnads.
+// Commands returns a command's immediate children.
 func (c *Command) Commands() []*Command {
 	return c.commands[:]
 }
@@ -138,9 +122,9 @@ func (c *Command) Parse(args []string) error {
 		return err
 	}
 
-	if c.action == nil {
+	if c.Action == nil {
 		// TODO: Print help.
 		return nil
 	}
-	return c.action(parser.Context())
+	return c.Action(parser.Context())
 }

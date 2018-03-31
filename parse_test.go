@@ -14,7 +14,7 @@ import (
 
 func TestParseMinimal(t *testing.T) {
 	action := testAction{}
-	command := NewCommand("root", "help").Action(action.invoke)
+	command := Command{Action: action.invoke}
 	assert.NoError(t, command.Parse(nil))
 	assert.Equal(t, command, action.result)
 }
@@ -26,7 +26,7 @@ func TestParseFlags(t *testing.T) {
 	var b bool
 	var a []int
 
-	command := NewCommand("root", "help").Action(action.invoke)
+	command := Command{Action: action.invoke}
 	command.AddFlag("int", "").WithShort('i').AsInt(&i)
 	command.AddFlag("string", "").WithShort('s').AsString(&s).Default("default")
 	command.AddFlag("bool", "").WithShort('b').AsBool(&b)
