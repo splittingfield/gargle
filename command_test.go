@@ -180,7 +180,11 @@ func TestParseArgs(t *testing.T) {
 			args: []string{"foo"},
 			err:  `invalid argument for int: strconv.ParseInt: parsing "foo": invalid syntax`,
 		},
-		// Too many args is covered in TestParseCommands.
+		"ForceVerbatim": {
+			args: []string{"81", "--", "--foo"},
+			i:    81, s: "--foo", b: false, a: nil,
+		},
+		// "Too many args" case is covered in TestParseCommands.
 	}
 
 	for name, c := range cases {
