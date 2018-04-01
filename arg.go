@@ -11,9 +11,6 @@ type Arg struct {
 	// line can serve independently as a short-form description.
 	Help string
 
-	// Hidden sets whether the argument should be omitted from usage text.
-	Hidden bool
-
 	// Required sets the argument to generate an error when absent.
 	Required bool
 
@@ -22,7 +19,7 @@ type Arg struct {
 	// during parsing.
 	PreAction Action
 
-	// Value is the backing value for the argument.
+	// Value is the backing value for the argument. This may not be nil.
 	Value Value
 }
 

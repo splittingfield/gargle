@@ -29,7 +29,8 @@ type Flag struct {
 	// during parsing.
 	PreAction Action
 
-	// Value is the backing value for the flag.
+	// Value is the backing value for the flag. If left unset (nil) the flag
+	// does not consume or allow an argument.
 	Value Value
 }
 

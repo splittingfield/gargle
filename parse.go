@@ -87,7 +87,9 @@ func (p *parser) Parse() ([]entity, error) {
 			}
 
 			var value string
-			if IsBoolean(flag.Value) {
+			if flag.Value == nil {
+				// TODO: Explicitly forbid a value.
+			} else if IsBoolean(flag.Value) {
 				value = strconv.FormatBool(!negate)
 			} else {
 				argToken := p.tokenizer.Next(true)
@@ -105,7 +107,9 @@ func (p *parser) Parse() ([]entity, error) {
 			}
 
 			var value string
-			if IsBoolean(flag.Value) {
+			if flag.Value == nil {
+				// TODO: Explicitly forbid a value.
+			} else if IsBoolean(flag.Value) {
 				value = "true"
 			} else {
 				argToken := p.tokenizer.Next(true)

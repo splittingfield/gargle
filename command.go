@@ -4,7 +4,6 @@ import "fmt"
 
 /*
 Future:
-- Default help command and flags.
 - Aliased commands
 - Enable formatting brief help even when the help strings are long. First line?
 - Prevent collisions on flags and commands
@@ -82,7 +81,14 @@ func (c *Command) Commands() []*Command {
 
 // AddFlag creates a new flag under a command. The flag is automatically applied
 // to all subcommands unless overridden by a flag with the same name.
-func (c *Command) AddFlag(flags ...*Flag) { c.flags = append(c.flags, flags...) }
+func (c *Command) AddFlag(flags ...*Flag) {
+	for _, flag := range flags {
+		if flag.Name == "" && flag.Short == rune(0) {
+			panic("flags may not be anonymous")
+		}
+		c.flags = append(c.flags, flag)
+	}
+}
 
 // Flags returns a command's flags, not including those of its parents.
 func (c *Command) Flags() []*Flag {
@@ -100,6 +106,10 @@ func (c *Command) Args() []*Arg {
 
 // Parse reads arguments and executes a command or one of its subcommands.
 func (c *Command) Parse(args []string) error {
+	// TODO: Validate full command tree prior to parsing:
+	// - Variadic arguments should be last.
+	// - Arguments need values.
+
 	parser := newParser(c, args)
 	parsed, parseErr := parser.Parse()
 	context := parser.Context()
