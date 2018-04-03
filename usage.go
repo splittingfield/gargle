@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"syscall"
@@ -11,6 +12,14 @@ import (
 
 	"github.com/ckarenz/wordwrap"
 )
+
+var defaultUsage = &UsageWriter{Indent: "  ", Divider: "  ", MaxFirstColumn: 35}
+
+// DefaultUsage returns the default usage writer as an action. This is usually
+// attached to help flags and commands as a PreAction.
+func DefaultUsage() Action {
+	return defaultUsage.Format
+}
 
 // UsageWriter is a configurable usage formatter which can be used as a safe
 // default for most applications.
@@ -24,12 +33,21 @@ type UsageWriter struct {
 	// MaxFirstColumn is the maximum width of the left column in split sections.
 	MaxFirstColumn int
 
-	// MaxLineWidth overrides the maximum width of each line of text.
+	// MaxLineWidth overrides the maximum width of each line of text, defaults
+	// to terminal width in TTY or 80 columns otherwise.
 	MaxLineWidth int
+
+	// Writer overrides the default writer, default os.Stdout.
+	Writer io.Writer
 }
 
 // Format writes a given command's usage using the writer's configuration.
-func (u *UsageWriter) Format(w io.Writer, command *Command) error {
+func (u *UsageWriter) Format(command *Command) error {
+	w := u.Writer
+	if w == nil {
+		w = os.Stdout
+	}
+
 	var subs commandSlice
 	for _, cmd := range command.Commands() {
 		if !cmd.Hidden {

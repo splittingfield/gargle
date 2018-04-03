@@ -57,9 +57,10 @@ Options:
 		Indent:       "  ",
 		Divider:      "  ",
 		MaxLineWidth: 80,
+		Writer:       actual,
 	}
 
-	require.NoError(t, writer.Format(actual, root))
+	require.NoError(t, writer.Format(root))
 	assert.Equal(t, expected, actual.String())
 }
 
