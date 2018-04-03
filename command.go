@@ -2,19 +2,6 @@ package gargle
 
 import "fmt"
 
-/*
-Future:
-- Aliased commands
-- Enable formatting brief help even when the help strings are long. First line?
-- Prevent collisions on flags and commands
-- Display long-format help (e.g. man page)
-- Completion script generation
-- Parse tests
-- Examples
-- Emit errors when a non-aggregate flag is specified multiple times?
-- Improve help for boolean flags (attach "no-" prefix if the flag's default is true)
-*/
-
 // Action is a function which is invoked during or after parsing. The passed
 // context is actively parsed command, i.e. the last encountered during parsing.
 type Action func(context *Command) error
