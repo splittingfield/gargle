@@ -145,7 +145,7 @@ func invokePreActions(context *Command, parsed []entity) error {
 	type invocable interface{ invokePre(context *Command) error }
 
 	for _, e := range parsed {
-		val, ok := e.object.(invocable)
+		val, ok := e.Option.(invocable)
 		if !ok {
 			continue
 		}
@@ -163,14 +163,14 @@ func setValues(context *Command, parsed []entity) error {
 	// Set all values we saw during parsing.
 	seen := map[interface{}]bool{}
 	for _, e := range parsed {
-		val, ok := e.object.(setter)
+		val, ok := e.Option.(setter)
 		if !ok {
 			continue
 		}
 
-		seen[e.object] = true
-		if err := val.setValue(e.value); err != nil {
-			return fmt.Errorf("invalid argument for %s: %s", e.name, err.Error())
+		seen[e.Option] = true
+		if err := val.setValue(e.Value); err != nil {
+			return fmt.Errorf("invalid value %q for %s: %s", e.Value, e.Name, err.Error())
 		}
 	}
 

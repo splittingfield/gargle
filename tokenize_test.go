@@ -34,7 +34,7 @@ func TestTokenize(t *testing.T) {
 			[]token{
 				{tokenShort, "a"},
 				{tokenShort, "b"},
-				{tokenArg, "-"},
+				{tokenValue, "-"},
 				{tokenShort, "c"},
 			},
 		},
@@ -42,20 +42,29 @@ func TestTokenize(t *testing.T) {
 			[]string{"--one", "arg1", "-2", "arg2"},
 			[]token{
 				{tokenLong, "one"},
-				{tokenArg, "arg1"},
+				{tokenValue, "arg1"},
 				{tokenShort, "2"},
-				{tokenArg, "arg2"},
+				{tokenValue, "arg2"},
 			},
 		},
 		"LongWithJoinedValue": {
 			[]string{"--one=arg", "--two=--"},
 			[]token{
 				{tokenLong, "one"},
-				{tokenArg, "arg"},
+				{tokenAssigned, "arg"},
 				{tokenLong, "two"},
-				{tokenArg, "--"},
+				{tokenAssigned, "--"},
 			},
 		},
+		/*
+			"EmptyValue": {
+				[]string{"--flag="},
+				[]token{
+					{tokenLong, "flag"},
+					{tokenAssigned, ""},
+				},
+			},
+		*/
 	}
 
 	for name, c := range cases {
@@ -96,6 +105,11 @@ func TestTokenizeVerbatim(t *testing.T) {
 			skipFirst: true,
 			expected:  []string{"arg"},
 		},
+		"SplitLongNullValue": {
+			args:      []string{"--flag="},
+			skipFirst: true,
+			expected:  []string{""},
+		},
 	}
 
 	for name, c := range cases {
@@ -107,7 +121,6 @@ func TestTokenizeVerbatim(t *testing.T) {
 
 			var actual []string
 			for tok := tokenizer.Next(true); tok.Type != tokenEOF; tok = tokenizer.Next(true) {
-				assert.Equal(t, tokenArg, tok.Type)
 				actual = append(actual, tok.Value)
 			}
 

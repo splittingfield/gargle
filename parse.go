@@ -2,16 +2,7 @@ package gargle
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 )
-
-// entity is a parsed object with an optional associated value.
-type entity struct {
-	object interface{}
-	name   string
-	value  string
-}
 
 // parser is a multi-phase command-line argument parser. Parsers are stateful
 // and should not be reused.
@@ -63,6 +54,13 @@ func (p *parser) setContext(context *Command) {
 	p.context = context
 }
 
+// entity is a parsed object with an optional associated value.
+type entity struct {
+	Option interface{}
+	Name   string
+	Value  string
+}
+
 func (p *parser) Parse() ([]entity, error) {
 	var parsed []entity
 	verbatim := false
@@ -75,28 +73,14 @@ func (p *parser) Parse() ([]entity, error) {
 			verbatim = true
 
 		case tokenLong:
-			negate := false
 			flag, ok := p.flags[token.Value]
-			if !ok && strings.HasPrefix(token.Value, "no-") {
-				// This may be a boolean flag; try its negated form.
-				flag, ok = p.flags[token.Value[3:]]
-				negate = true
-			}
-			if !ok || negate && !IsBoolean(flag.Value) {
+			if !ok {
 				return parsed, fmt.Errorf("unknown flag: %s", token.Value)
 			}
 
-			var value string
-			if flag.Value == nil {
-				// TODO: Explicitly forbid a value.
-			} else if IsBoolean(flag.Value) {
-				value = strconv.FormatBool(!negate)
-			} else {
-				argToken := p.tokenizer.Next(true)
-				if argToken.Type == tokenEOF {
-					return parsed, fmt.Errorf("%s must have a value", token)
-				}
-				value = argToken.Value
+			value, err := p.parseFlagValue(flag, token)
+			if err != nil {
+				return parsed, err
 			}
 			parsed = append(parsed, entity{flag, token.String(), value})
 
@@ -106,21 +90,13 @@ func (p *parser) Parse() ([]entity, error) {
 				return parsed, fmt.Errorf("unknown flag: %s", token.Value)
 			}
 
-			var value string
-			if flag.Value == nil {
-				// TODO: Explicitly forbid a value.
-			} else if IsBoolean(flag.Value) {
-				value = "true"
-			} else {
-				argToken := p.tokenizer.Next(true)
-				if argToken.Type == tokenEOF {
-					return parsed, fmt.Errorf("%s must have a value", token)
-				}
-				value = argToken.Value
+			value, err := p.parseFlagValue(flag, token)
+			if err != nil {
+				return parsed, err
 			}
 			parsed = append(parsed, entity{flag, token.String(), value})
 
-		case tokenArg:
+		case tokenValue:
 			// Commands take precedence over positional arguments. Any remaining
 			// unparsed args are discarded for the next context.
 			if len(p.commands) != 0 {
@@ -145,4 +121,29 @@ func (p *parser) Parse() ([]entity, error) {
 			parsed = append(parsed, entity{arg, arg.Name, token.Value})
 		}
 	}
+}
+
+func (p *parser) parseFlagValue(flag *Flag, flagToken token) (string, error) {
+	if tok := p.tokenizer.Peek(); tok != nil && tok.Type == tokenAssigned {
+		if flag.Value == nil {
+			return "", fmt.Errorf("invalid value %q for %s: flag does not accept a value", tok.Value, flagToken)
+		}
+		return tok.Value, nil
+	}
+
+	// Valueless flags don't consume an argument.
+	if flag.Value == nil {
+		return "", nil
+	}
+
+	// Boolean values are optional.
+	if IsBoolean(flag.Value) {
+		return "true", nil
+	}
+
+	tok := p.tokenizer.Next(true)
+	if tok.Type == tokenEOF {
+		return "", fmt.Errorf("%s requires a value", flagToken)
+	}
+	return tok.Value, nil
 }

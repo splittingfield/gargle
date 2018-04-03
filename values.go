@@ -20,6 +20,20 @@ func (v *boolValue) Set(s string) error {
 	return err
 }
 
+type negatedValue bool
+
+func NegatedBoolVar(v *bool) Value { return (*negatedValue)(v) }
+
+func (v *negatedValue) IsBoolean() bool { return true }
+func (v *negatedValue) String() string  { return strconv.FormatBool(bool(*v)) }
+func (v *negatedValue) Set(s string) error {
+	val, err := strconv.ParseBool(s)
+	if err == nil {
+		*v = !negatedValue(val)
+	}
+	return err
+}
+
 type stringValue string
 
 func StringVar(v *string) Value { return (*stringValue)(v) }

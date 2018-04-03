@@ -24,7 +24,6 @@ func TestAddCommand(t *testing.T) {
 	assert.Panics(t, func() { parent.AddCommand(child2) }, "A command can't have multiple parents.")
 }
 
-// TODO: Test valuless types.
 // TODO: Test required flags/args.
 
 func TestParseMinimal(t *testing.T) {
@@ -64,7 +63,7 @@ func TestParseFlags(t *testing.T) {
 		},
 		"LongFlagWithoutValue": {
 			args: []string{"--int"},
-			err:  "--int must have a value",
+			err:  "--int requires a value",
 		},
 		"ShortFlagWithValue": {
 			args: []string{"-i", "42"},
@@ -72,7 +71,7 @@ func TestParseFlags(t *testing.T) {
 		},
 		"ShortFlagWithoutValue": {
 			args: []string{"-i"},
-			err:  "-i must have a value",
+			err:  "-i requires a value",
 		},
 		"BooleanLongFlag": {
 			args: []string{"--bool"},
@@ -98,13 +97,17 @@ func TestParseFlags(t *testing.T) {
 			args: []string{"-b", "--bool", "--bool"},
 			i:    0, s: "default", b: true, a: nil,
 		},
+		"LongNoValue": {
+			args: []string{"--int="},
+			err:  `invalid value "" for --int: strconv.ParseInt: parsing "": invalid syntax`,
+		},
 		"LongInvalidType": {
 			args: []string{"--int=foo"},
-			err:  `invalid argument for --int: strconv.ParseInt: parsing "foo": invalid syntax`,
+			err:  `invalid value "foo" for --int: strconv.ParseInt: parsing "foo": invalid syntax`,
 		},
 		"ShortInvalidType": {
 			args: []string{"-ifoo"},
-			err:  `invalid argument for -i: strconv.ParseInt: parsing "foo": invalid syntax`,
+			err:  `invalid value "foo" for -i: strconv.ParseInt: parsing "foo": invalid syntax`,
 		},
 		"UnknownLongFlag": {
 			args: []string{"--not-here"},
@@ -178,7 +181,7 @@ func TestParseArgs(t *testing.T) {
 		},
 		"InvalidType": {
 			args: []string{"foo"},
-			err:  `invalid argument for int: strconv.ParseInt: parsing "foo": invalid syntax`,
+			err:  `invalid value "foo" for int: strconv.ParseInt: parsing "foo": invalid syntax`,
 		},
 		"ForceVerbatim": {
 			args: []string{"81", "--", "--foo"},
@@ -345,6 +348,73 @@ func TestParseCommands(t *testing.T) {
 
 			assert.Equal(t, c.flag, flag)
 			assert.Equal(t, c.arg, arg)
+		})
+	}
+}
+
+func TestParseNilValue(t *testing.T) {
+	command := &Command{}
+	command.AddFlag(&Flag{Name: "flag", Short: 'f'})
+	command.AddArg(&Arg{Name: "arg"})
+
+	cases := map[string]struct {
+		args []string
+		err  string
+	}{
+		"NoArgs": {},
+		"NoValue": {
+			args: []string{"--flag", "-f"},
+		},
+		"LongValue": {
+			args: []string{"--flag=test"},
+			err:  `invalid value "test" for --flag: flag does not accept a value`,
+		},
+		"ShortValue": {
+			args: []string{"-ftest"},
+			err:  `unknown flag: t`,
+		},
+		"ArgValue": {
+			args: []string{"test"},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := command.Parse(c.args)
+			if c.err == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, c.err)
+			}
+		})
+	}
+}
+
+func TestParseBoolValue(t *testing.T) {
+	// This test covers explicit flag overlap as one might find in negated bools.
+	var value bool
+	command := &Command{}
+	command.AddFlag(&Flag{Name: "flag", Short: 'f', Value: BoolVar(&value)})
+	command.AddFlag(&Flag{Name: "no-flag", Value: NegatedBoolVar(&value)})
+
+	cases := map[string]struct {
+		args     []string
+		expected bool
+	}{
+		"NoArgs":           {},
+		"Positive":         {[]string{"--flag"}, true},
+		"PositiveShort":    {[]string{"-f"}, true},
+		"Negative":         {[]string{"--no-flag"}, false},
+		"OverridePositive": {[]string{"--no-flag", "--flag"}, true},
+		"OverrideNegative": {[]string{"--flag", "--no-flag"}, false},
+		"ExplicitPositive": {[]string{"--flag=true"}, true},
+		"ExplicitNegative": {[]string{"--flag=false"}, false},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			require.NoError(t, command.Parse(c.args))
+			assert.Equal(t, c.expected, value)
 		})
 	}
 }
