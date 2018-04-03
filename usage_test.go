@@ -16,7 +16,7 @@ func TestDefaultUsageFull(t *testing.T) {
 	root := &Command{Name: "root", Help: "A root command which does something."}
 	root.AddCommand(
 		&Command{Name: "subcommand1", Help: "The first command does some things too."},
-		&Command{Name: "sub2", Help: "The second command has long explanatory text. Perhaps there is complex edge case which is very important for a user to know."},
+		&Command{Name: "sub2", Help: "The second command has long explanatory text. Perhaps there is a complex edge case which is very important for a user to know."},
 	)
 	root.AddFlag(
 		&Flag{Name: "help", Short: 'h', Help: "Show usage"},
@@ -40,7 +40,7 @@ Arguments:
   required  A required argument
 
 Commands:
-  sub2         The second command has long explanatory text. Perhaps there is
+  sub2         The second command has long explanatory text. Perhaps there is a
                complex edge case which is very important for a user to know.
   subcommand1  The first command does some things too.
 
