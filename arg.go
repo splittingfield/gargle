@@ -2,24 +2,22 @@ package gargle
 
 // Arg represents a positional argument attached to a command.
 type Arg struct {
-	// Name is an optional unprefixed long form of the argument.
-	// For example, "help" would match the argument "--help".
+	// An optional name to display in help and errors.
 	Name string
 
-	// Help is text describing the argument. It may be a single line or an an
-	// arbitrarily long description. Usage writers generally assume the first
-	// line can serve independently as a short-form description.
+	// Text describing the argument. It may be a single line or an arbitrarily
+	// long description. Usage writers may assume the first line can serve
+	// independently as a short-form description.
 	Help string
 
 	// Required sets the argument to generate an error when absent.
 	Required bool
 
-	// PreAction is a function invoked after parsing, but before values are set.
-	// Each pre-action will be executed unconditionally in the order encountered
-	// during parsing.
+	// PreAction is invoked after parsing, but before values are set. All pre-actions
+	// are executed unconditionally in the order encountered during parsing.
 	PreAction Action
 
-	// Value is the backing value for the argument. This may not be nil.
+	// Underlying value for the argument, set during parsing.
 	Value Value
 }
 

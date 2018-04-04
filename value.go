@@ -8,11 +8,8 @@ type Value interface {
 
 // BooleanValue is an optional interface which may be implemented by bool types.
 //
-// Flags backed by boolean values are parsed differently from other flags. Such
-// flags are true if provided, false if not, without requiring an explict value.
-//
-// Additionally, boolean flags also generate their negated counterparts, e.g.
-// "--warn" and "--no-warn". This does not apply to positional arguments.
+// Flags backed by boolean values are parsed differently from others. Bool flags
+// are set to "true" if provided without an explicit value.
 type BooleanValue interface {
 	IsBoolean() bool
 }
@@ -24,8 +21,8 @@ func IsBoolean(v Value) bool {
 }
 
 // AggregateValue is an optional interface which may be implemented by aggregate
-// types, such as slices and maps. If present, the value's Set function will be
-// called once for each instance of an argument parsed.
+// types, such as slices and maps. This affects how values are displayed in help
+// and allows positional arguments to consume multiple values.
 type AggregateValue interface {
 	IsAggregate() bool
 }

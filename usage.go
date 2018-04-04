@@ -13,6 +13,64 @@ import (
 	"github.com/ckarenz/wordwrap"
 )
 
+// NewHelpFlag creates a standard help flag which invokes the an action when
+// parsed. This flag should be attached to the root command.
+func NewHelpFlag(writeHelp Action) *Flag {
+	if writeHelp == nil {
+		writeHelp = DefaultUsage()
+	}
+
+	return &Flag{
+		Name: "help", Short: 'h',
+		Help: "Show usage",
+		PreAction: func(context *Command) error {
+			writeHelp(context)
+			os.Exit(0)
+			return nil
+		},
+	}
+}
+
+// NewHelpCommand creates a standard help command, which prints help for a
+// given subcommand. If no arguments are passed, it prints its parent's help.
+// This should be added to each command group.
+func NewHelpCommand(writeHelp Action) *Command {
+	if writeHelp == nil {
+		writeHelp = DefaultUsage()
+	}
+
+	args := new([]string)
+	cmd := &Command{
+		Name: "help",
+		Help: "Show usage",
+		PreAction: func(context *Command) error {
+			writeCommandHelp(writeHelp, context.Parent(), *args)
+			os.Exit(0)
+			return nil
+		},
+	}
+	cmd.AddArgs(&Arg{
+		Name:  "command",
+		Help:  "Show help for subcommand(s).",
+		Value: StringsVar(args),
+	})
+	return cmd
+}
+
+func writeCommandHelp(writeHelp Action, context *Command, args []string) error {
+nextArg:
+	for _, arg := range args {
+		for _, cmd := range context.Commands() {
+			if cmd.Name == arg {
+				context = cmd
+				continue nextArg
+			}
+		}
+		return fmt.Errorf("%q is not a valid command", context.FullName()+" "+arg)
+	}
+	return writeHelp(context)
+}
+
 var defaultUsage = &UsageWriter{Indent: "  ", Divider: "  ", MaxFirstColumn: 35}
 
 // DefaultUsage returns the default usage writer as an action. This is usually
@@ -94,12 +152,13 @@ func (u *UsageWriter) Format(command *Command) error {
 	}
 	fmt.Fprintln(w)
 
-	maxWidth, err := ttyWidth()
-	if err != nil {
-		maxWidth = 80
-	}
-	if maxWidth > u.MaxLineWidth {
-		maxWidth = u.MaxLineWidth
+	maxWidth := u.MaxLineWidth
+	if maxWidth == 0 {
+		if width, err := ttyWidth(); err != nil {
+			maxWidth = 80
+		} else {
+			maxWidth = width
+		}
 	}
 
 	// Show the command's help.
@@ -109,17 +168,8 @@ func (u *UsageWriter) Format(command *Command) error {
 		fmt.Fprintln(w)
 	}
 
-	// Print args first since the list is likely to be short and we want them near the summary.
-	if len(args) != 0 {
-		fmt.Fprintln(w, "\nArguments:")
-		rows := make([][2]string, 0, len(args))
-		for _, arg := range args {
-			// TODO: Should help be trimmed to the first line?
-			rows = append(rows, [2]string{"  " + arg.Name, arg.Help})
-		}
-		u.formatTwoColumns(w, rows, maxWidth)
-	}
-
+	// Print commands/args first since we want them near the summary. We omit
+	// args if commands are present since we know they'll be ignored on parse.
 	if len(subs) != 0 {
 		fmt.Fprintln(w, "\nCommands:")
 		rows := make([][2]string, 0, len(subs))
@@ -128,9 +178,16 @@ func (u *UsageWriter) Format(command *Command) error {
 			rows = append(rows, [2]string{u.Indent + cmd.Name, cmd.Help})
 		}
 		u.formatTwoColumns(w, rows, maxWidth)
+	} else if len(args) != 0 {
+		fmt.Fprintln(w, "\nArguments:")
+		rows := make([][2]string, 0, len(args))
+		for _, arg := range args {
+			// TODO: Should help be trimmed to the first line?
+			rows = append(rows, [2]string{u.Indent + arg.Name, arg.Help})
+		}
+		u.formatTwoColumns(w, rows, maxWidth)
 	}
 
-	// TODO: Check if we have any short flags before adding their stuff.
 	if len(flags) != 0 {
 		fmt.Fprintln(w, "\nOptions:")
 
@@ -143,6 +200,7 @@ func (u *UsageWriter) Format(command *Command) error {
 			}
 		}
 
+		// Print each flag with short and long flags vertically aligned.
 		rows := make([][2]string, 0, len(flags))
 		for _, flag := range flags {
 			var flagStr string
@@ -165,13 +223,15 @@ func (u *UsageWriter) Format(command *Command) error {
 			}
 
 			// Now add the argument's placeholder if it has one.
-			// TODO: Should we also print the negated version of boolean flags?
 			if flag.Value != nil && !IsBoolean(flag.Value) {
 				flagStr += " "
 				if flag.Placeholder == "" {
 					flagStr += "VALUE"
 				} else {
 					flagStr += flag.Placeholder
+				}
+				if IsAggregate(flag.Value) {
+					flagStr += "..."
 				}
 			}
 

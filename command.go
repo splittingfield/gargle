@@ -1,3 +1,4 @@
+// Package gargle implements a library for command-line parsing.
 package gargle
 
 import "fmt"
@@ -7,27 +8,30 @@ import "fmt"
 type Action func(context *Command) error
 
 // Command is a hierarchical structured argument. It can serve as an application
-// entry point, a command group, or both.
+// entry point, a command group, or both. For exmple, in the command line
+// "go test .", "go" is a root command and "test" is a subcommand of "go".
 type Command struct {
 	// Name of the command.
 	Name string
 
-	// Help is text describing the command. It may be a single line or an
-	// arbitrarily long description. Usage writers generally assume the first
-	// line can serve independently as a short-form description.
+	// Text describing the command. It may be a single line or an arbitrarily
+	// long description. Usage writers may assume the first line can serve
+	// independently as a short-form description.
 	Help string
 
 	// Hidden sets whether the command should be omitted from usage text.
 	Hidden bool
 
-	// PreAction is a function invoked after parsing, but before values are set.
-	// Each pre-action will be executed unconditionally in the order encountered
-	// during parsing.
+	// PreAction is invoked after parsing, but before values are set. All pre-actions
+	// are executed unconditionally in the order encountered during parsing.
 	PreAction Action
 
-	// Action is a function invoked after parsing and argument validation. Only
-	// the active context, i.e. the latest command parsed, is invoked.
+	// Action invoked after parsing and argument validation. Only the active
+	// context, i.e. the last command parsed, is invoked.
 	Action Action
+
+	// Client-defined labels for grouping and processing commands.
+	Labels map[string]string
 
 	parent   *Command
 	commands []*Command
@@ -46,9 +50,9 @@ func (c *Command) FullName() string {
 // Parent returns a command's parent command, if any.
 func (c *Command) Parent() *Command { return c.parent }
 
-// AddCommand adds any number of child commands. It is an error to add the same
+// AddCommands adds any number of child commands. It is an error to add the same
 // child command to multiple parents, or to add a command to itself.
-func (c *Command) AddCommand(commands ...*Command) {
+func (c *Command) AddCommands(commands ...*Command) {
 	for _, cmd := range commands {
 		if cmd == c {
 			panic("cannot add a command to itself")
@@ -66,9 +70,9 @@ func (c *Command) Commands() []*Command {
 	return c.commands[:]
 }
 
-// AddFlag creates a new flag under a command. The flag is automatically applied
-// to all subcommands unless overridden by a flag with the same name.
-func (c *Command) AddFlag(flags ...*Flag) {
+// AddFlags creates a new flag under a command. Flags are inherited by subcommands
+// unless overridden by a flag with the same name.
+func (c *Command) AddFlags(flags ...*Flag) {
 	for _, flag := range flags {
 		if flag.Name == "" && flag.Short == rune(0) {
 			panic("flags may not be anonymous")
@@ -82,9 +86,8 @@ func (c *Command) Flags() []*Flag {
 	return c.flags[:]
 }
 
-// AddArg creates a new positional argument under a command. The arg is
-// automatically applied to all subcommands.
-func (c *Command) AddArg(args ...*Arg) { c.args = append(c.args, args...) }
+// AddArgs creates a new positional argument under a command.
+func (c *Command) AddArgs(args ...*Arg) { c.args = append(c.args, args...) }
 
 // Args returns a command's positional arguments, not including those of its parents.
 func (c *Command) Args() []*Arg {
@@ -93,10 +96,6 @@ func (c *Command) Args() []*Arg {
 
 // Parse reads arguments and executes a command or one of its subcommands.
 func (c *Command) Parse(args []string) error {
-	// TODO: Validate full command tree prior to parsing:
-	// - Variadic arguments should be last.
-	// - Arguments need values.
-
 	parser := newParser(c, args)
 	parsed, parseErr := parser.Parse()
 	context := parser.Context()
@@ -114,11 +113,10 @@ func (c *Command) Parse(args []string) error {
 		return err
 	}
 
-	if c.Action == nil {
-		// TODO: Print help.
-		return nil
+	if c.Action != nil {
+		return context.Action(context)
 	}
-	return context.Action(context)
+	return nil
 }
 
 func (c *Command) invokePre(context *Command) error {

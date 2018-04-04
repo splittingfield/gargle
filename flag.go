@@ -6,9 +6,9 @@ type Flag struct {
 	// For example, "help" would match the argument "--help".
 	Name string
 
-	// Help is text describing the flag. It may be a single line or an an
-	// arbitrarily long description. Usage writers generally assume the first
-	// line can serve independently as a short-form description.
+	// Text describing the command. It may be a single line or an arbitrarily
+	// long description. Usage writers may assume the first line can serve
+	// independently as a short-form description.
 	Help string
 
 	// Placeholder is an optional override for the name of a flag's value.
@@ -24,13 +24,11 @@ type Flag struct {
 	// Required sets the flag to generate an error when absent.
 	Required bool
 
-	// PreAction is a function invoked after parsing, but before values are set.
-	// Each pre-action will be executed unconditionally in the order encountered
-	// during parsing.
+	// PreAction is invoked after parsing, but before values are set. All pre-actions
+	// are executed unconditionally in the order encountered during parsing.
 	PreAction Action
 
-	// Value is the backing value for the flag. If left unset (nil) the flag
-	// does not consume or allow an argument.
+	// Underlying value for the flag, set during parsing.
 	Value Value
 }
 

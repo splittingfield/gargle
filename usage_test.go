@@ -6,62 +6,104 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestDefaultUsageFull(t *testing.T) {
-	var b *bool
-	var i *int
+func TestWriteCommandHelp(t *testing.T) {
+	root := &Command{Name: "root"}
+	sub1 := &Command{Name: "sub1"}
+	sub2 := &Command{Name: "sub2"}
+	root.AddCommands(sub1)
+	sub1.AddCommands(sub2)
 
-	root := &Command{Name: "root", Help: "A root command which does something."}
-	root.AddCommand(
-		&Command{Name: "subcommand1", Help: "The first command does some things too."},
-		&Command{Name: "sub2", Help: "The second command has long explanatory text. Perhaps there is a complex edge case which is very important for a user to know."},
-	)
-	root.AddFlag(
-		&Flag{Name: "help", Short: 'h', Help: "Show usage"},
-		&Flag{Short: 'v', Help: "Show version information"},
-		&Flag{Short: 'a', Help: "Short flag with no long form", Value: IntVar(i)},
-		&Flag{Name: "long-only", Help: "Long flag with no short form", Value: IntVar(i)},
-		&Flag{Name: "bool", Short: 'b', Help: "Boolean flag", Value: BoolVar(b)},
-		&Flag{Name: "hidden", Help: "A hidden flag", Hidden: true},
-	)
-	root.AddArg(
-		&Arg{Name: "optional", Help: "An argument"},
-		&Arg{Name: "required", Help: "A required argument", Required: true},
-	)
-
-	expected := `Usage: root [<flags>] <command>
-
-A root command which does something.
-
-Arguments:
-  optional  An argument
-  required  A required argument
-
-Commands:
-  sub2         The second command has long explanatory text. Perhaps there is a
-               complex edge case which is very important for a user to know.
-  subcommand1  The first command does some things too.
-
-Options:
-  -a VALUE               Short flag with no long form
-  -b, --bool             Boolean flag
-  -h, --help             Show usage
-      --long-only VALUE  Long flag with no short form
-  -v                     Show version information
-`
-
-	actual := &strings.Builder{}
-	writer := UsageWriter{
-		Indent:       "  ",
-		Divider:      "  ",
-		MaxLineWidth: 80,
-		Writer:       actual,
+	cases := map[string]struct {
+		args     []string
+		expected string
+		err      string
+	}{
+		"Parent": {expected: "root"},
+		"Child": {
+			args:     []string{"sub1"},
+			expected: "root sub1",
+		},
+		"GrandChild": {
+			args:     []string{"sub1", "sub2"},
+			expected: "root sub1 sub2",
+		},
+		"ChildNotFound": {
+			args: []string{"nothere"},
+			err:  `"root nothere" is not a valid command`,
+		},
+		"GrandChildNotFound": {
+			args: []string{"sub1", "nothere"},
+			err:  `"root sub1 nothere" is not a valid command`,
+		},
 	}
 
-	require.NoError(t, writer.Format(root))
-	assert.Equal(t, expected, actual.String())
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			b := &strings.Builder{}
+			write := func(context *Command) error {
+				b.WriteString(context.FullName())
+				return nil
+			}
+
+			err := writeCommandHelp(write, root, c.args)
+			if c.err == "" {
+				assert.NoError(t, err)
+				assert.Equal(t, c.expected, b.String())
+			} else {
+				assert.EqualError(t, err, c.err)
+			}
+		})
+	}
+}
+
+func ExampleDefaultUsage() {
+	var b bool
+	var i int
+	var s []string
+
+	usage := DefaultUsage()
+	root := &Command{Name: "root", Help: "A root command which does something."}
+	root.AddCommands(
+		NewHelpCommand(usage),
+		&Command{Name: "subcommand1", Help: "The first subcommand does some things too."},
+		&Command{Name: "sub2", Help: "The second command has long explanatory text. Perhaps there is a complex edge case which is very important for a user to know."},
+	)
+	root.AddFlags(
+		NewHelpFlag(usage),
+		&Flag{Short: 'v', Help: "Show version information"},
+		&Flag{Short: 'a', Help: "Short flag with no long form", Value: IntVar(&i)},
+		&Flag{Name: "long-only", Help: "Long flag with no short form", Value: IntVar(&i)},
+		&Flag{Name: "bool", Short: 'b', Help: "Boolean flag", Value: BoolVar(&b)},
+		&Flag{Name: "hidden", Help: "A hidden flag", Hidden: true},
+		&Flag{
+			Name: "slice", Short: 's',
+			Placeholder: "STR",
+			Help:        "Aggregate value with custom placeholder",
+			Value:       StringsVar(&s),
+		},
+	)
+	root.Parse([]string{"help"})
+
+	// Output:
+	// Usage: root [<flags>] <command>
+	//
+	// A root command which does something.
+	//
+	// Commands:
+	//   help         Show usage
+	//   sub2         The second command has long explanatory text. Perhaps there is a
+	//                complex edge case which is very important for a user to know.
+	//   subcommand1  The first subcommand does some things too.
+	//
+	// Options:
+	//   -a VALUE               Short flag with no long form
+	//   -b, --bool             Boolean flag
+	//   -h, --help             Show usage
+	//       --long-only VALUE  Long flag with no short form
+	//   -s, --slice STR...     Aggregate value with custom placeholder
+	//   -v                     Show version information
 }
 
 func TestSortCommands(t *testing.T) {

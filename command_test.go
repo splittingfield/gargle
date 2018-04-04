@@ -11,8 +11,8 @@ func TestAddCommand(t *testing.T) {
 	parent := &Command{Name: "root"}
 	child1 := &Command{Name: "first"}
 	child2 := &Command{Name: "second"}
-	parent.AddCommand(child1)
-	child1.AddCommand(child2)
+	parent.AddCommands(child1)
+	child1.AddCommands(child2)
 
 	assert.Equal(t, []*Command{child1}, parent.Commands())
 	assert.Equal(t, []*Command{child2}, child1.Commands())
@@ -20,8 +20,8 @@ func TestAddCommand(t *testing.T) {
 	assert.Equal(t, "root first", child1.FullName())
 	assert.Equal(t, "root first second", child2.FullName())
 
-	assert.Panics(t, func() { parent.AddCommand(parent) }, "A command can't be added to itself.")
-	assert.Panics(t, func() { parent.AddCommand(child2) }, "A command can't have multiple parents.")
+	assert.Panics(t, func() { parent.AddCommands(parent) }, "A command can't be added to itself.")
+	assert.Panics(t, func() { parent.AddCommands(child2) }, "A command can't have multiple parents.")
 }
 
 // TODO: Test required flags/args.
@@ -41,7 +41,7 @@ func TestParseFlags(t *testing.T) {
 	var a []int
 
 	command := &Command{Action: action.Invoke}
-	command.AddFlag(
+	command.AddFlags(
 		&Flag{Name: "int", Short: 'i', Value: IntVar(&i)},
 		&Flag{Name: "string", Short: 's', Value: WithDefault(StringVar(&s), "default")},
 		&Flag{Name: "bool", Short: 'b', Value: BoolVar(&b)},
@@ -154,7 +154,7 @@ func TestParseArgs(t *testing.T) {
 	var ignored *int // This should never be set; crash if it is.
 
 	command := &Command{Action: action.Invoke}
-	command.AddArg(
+	command.AddArgs(
 		&Arg{Name: "int", Value: IntVar(&i)},
 		&Arg{Name: "string", Value: StringVar(&s)},
 		&Arg{Name: "bool", Value: BoolVar(&b)},
@@ -230,11 +230,11 @@ func TestParseCommands(t *testing.T) {
 	subSubAction := &testAction{}
 	subSub := &Command{Name: "sub-sub", Action: subSubAction.Invoke}
 
-	root.AddArg(&Arg{Name: "root-arg", Value: StringVar(rootArg)})
-	root.AddCommand(sub1, sub2)
-	sub1.AddFlag(&Flag{Name: "flag", Value: IntVar(&flag)})
-	sub1.AddCommand(subSub)
-	subSub.AddArg(&Arg{Name: "arg", Value: StringVar(&arg)})
+	root.AddArgs(&Arg{Name: "root-arg", Value: StringVar(rootArg)})
+	root.AddCommands(sub1, sub2)
+	sub1.AddFlags(&Flag{Name: "flag", Value: IntVar(&flag)})
+	sub1.AddCommands(subSub)
+	subSub.AddArgs(&Arg{Name: "arg", Value: StringVar(&arg)})
 
 	cases := map[string]struct {
 		args    []string
@@ -354,8 +354,8 @@ func TestParseCommands(t *testing.T) {
 
 func TestParseNilValue(t *testing.T) {
 	command := &Command{}
-	command.AddFlag(&Flag{Name: "flag", Short: 'f'})
-	command.AddArg(&Arg{Name: "arg"})
+	command.AddFlags(&Flag{Name: "flag", Short: 'f'})
+	command.AddArgs(&Arg{Name: "arg"})
 
 	cases := map[string]struct {
 		args []string
@@ -394,8 +394,8 @@ func TestParseBoolValue(t *testing.T) {
 	// This test covers explicit flag overlap as one might find in negated bools.
 	var value bool
 	command := &Command{}
-	command.AddFlag(&Flag{Name: "flag", Short: 'f', Value: BoolVar(&value)})
-	command.AddFlag(&Flag{Name: "no-flag", Value: NegatedBoolVar(&value)})
+	command.AddFlags(&Flag{Name: "flag", Short: 'f', Value: BoolVar(&value)})
+	command.AddFlags(&Flag{Name: "no-flag", Value: NegatedBoolVar(&value)})
 
 	cases := map[string]struct {
 		args     []string
