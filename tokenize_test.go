@@ -56,15 +56,13 @@ func TestTokenize(t *testing.T) {
 				{tokenAssigned, "--"},
 			},
 		},
-		/*
-			"EmptyValue": {
-				[]string{"--flag="},
-				[]token{
-					{tokenLong, "flag"},
-					{tokenAssigned, ""},
-				},
+		"EmptyValue": {
+			[]string{"--flag="},
+			[]token{
+				{tokenLong, "flag"},
+				{tokenAssigned, ""},
 			},
-		*/
+		},
 	}
 
 	for name, c := range cases {
