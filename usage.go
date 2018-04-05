@@ -115,7 +115,7 @@ func (u *UsageWriter) Format(command *Command) error {
 	sort.Sort(subs)
 
 	var flags flagSlice
-	for _, flag := range command.Flags() {
+	for _, flag := range command.FullFlags() {
 		if !flag.Hidden {
 			flags = append(flags, flag)
 		}
@@ -147,7 +147,7 @@ func (u *UsageWriter) Format(command *Command) error {
 			if IsAggregate(arg.Value) {
 				name += "..."
 			}
-			fmt.Fprint(w, " "+brackets(name, i <= lastRequired))
+			fmt.Fprint(w, " "+brackets(name, i > lastRequired))
 		}
 	}
 	fmt.Fprintln(w)

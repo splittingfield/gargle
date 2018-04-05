@@ -86,6 +86,15 @@ func (c *Command) Flags() []*Flag {
 	return c.flags[:]
 }
 
+// FullFlags returns a command's flags along with those of its parents. Flags
+// are ordered parent to child.
+func (c *Command) FullFlags() []*Flag {
+	if c.parent == nil {
+		return c.flags[:]
+	}
+	return append(c.parent.FullFlags(), c.flags...)
+}
+
 // AddArgs creates a new positional argument under a command.
 func (c *Command) AddArgs(args ...*Arg) { c.args = append(c.args, args...) }
 

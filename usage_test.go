@@ -63,15 +63,14 @@ func ExampleDefaultUsage() {
 	var i int
 	var s []string
 
-	usage := DefaultUsage()
 	root := &Command{Name: "root", Help: "A root command which does something."}
 	root.AddCommands(
-		NewHelpCommand(usage),
+		NewHelpCommand(nil),
 		&Command{Name: "subcommand1", Help: "The first subcommand does some things too."},
 		&Command{Name: "sub2", Help: "The second command has long explanatory text. Perhaps there is a complex edge case which is very important for a user to know."},
 	)
 	root.AddFlags(
-		NewHelpFlag(usage),
+		NewHelpFlag(nil),
 		&Flag{Short: 'v', Help: "Show version information"},
 		&Flag{Short: 'a', Help: "Short flag with no long form", Value: IntVar(&i)},
 		&Flag{Name: "long-only", Help: "Long flag with no short form", Value: IntVar(&i)},
@@ -104,6 +103,67 @@ func ExampleDefaultUsage() {
 	//       --long-only VALUE  Long flag with no short form
 	//   -s, --slice STR...     Aggregate value with custom placeholder
 	//   -v                     Show version information
+}
+
+func TestUsageWriter(t *testing.T) {
+	b := &strings.Builder{} // Must be reset before each test.
+	writer := UsageWriter{
+		Indent:         "++",
+		Divider:        "||",
+		MaxFirstColumn: 35,
+		MaxLineWidth:   80,
+		Writer:         b,
+	}
+
+	b.Reset()
+	t.Run("Minimal", func(t *testing.T) {
+		assert.NoError(t, writer.Format(&Command{Name: "name"}))
+		assert.Equal(t, "Usage: name\n", b.String())
+	})
+
+	b.Reset()
+	t.Run("InheritedFlags", func(t *testing.T) {
+		root := &Command{Name: "root"}
+		sub := &Command{Name: "sub"}
+		root.AddCommands(sub)
+		root.AddFlags(NewHelpFlag(nil))
+		sub.AddFlags(&Flag{Name: "flag", Short: 'f', Help: "A subcommand flag"})
+
+		expected := strings.Join([]string{
+			"Usage: root sub [<flags>]",
+			"",
+			"Options:",
+			"++-f, --flag||A subcommand flag",
+			"++-h, --help||Show usage",
+			"",
+		}, "\n")
+
+		assert.NoError(t, writer.Format(sub))
+		assert.Equal(t, expected, b.String())
+	})
+
+	b.Reset()
+	t.Run("RequiredArgs", func(t *testing.T) {
+		cmd := &Command{Name: "command"}
+		cmd.AddArgs(
+			&Arg{Name: "arg1", Help: "First arg"},
+			&Arg{Name: "arg2", Help: "Second arg", Required: true},
+			&Arg{Name: "arg3", Help: "Third arg"},
+		)
+
+		expected := strings.Join([]string{
+			"Usage: command <arg1> <arg2> [<arg3>]",
+			"",
+			"Arguments:",
+			"++arg1||First arg",
+			"++arg2||Second arg",
+			"++arg3||Third arg",
+			"",
+		}, "\n")
+
+		assert.NoError(t, writer.Format(cmd))
+		assert.Equal(t, expected, b.String())
+	})
 }
 
 func TestSortCommands(t *testing.T) {

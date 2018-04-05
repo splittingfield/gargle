@@ -1,6 +1,7 @@
 # Gargle
-[![](https://godoc.org/github.com/ckarenz/gargle?status.svg)](http://godoc.org/github.com/ckarenz/gargle)
-[![Build Status](https://travis-ci.org/ckarenz/gargle.svg?branch=master)](https://travis-ci.org/ckarenz/gargle) 
+
+[![GoDoc](https://godoc.org/github.com/ckarenz/gargle?status.svg)](http://godoc.org/github.com/ckarenz/gargle)
+[![Build Status](https://travis-ci.org/ckarenz/gargle.svg?branch=master)](https://travis-ci.org/ckarenz/gargle)
 
 *This is a work in progress and offers no compatibility guarantees.*
 
