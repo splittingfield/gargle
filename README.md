@@ -74,7 +74,7 @@ This sets `value` in order of precedence to:
 
 ## Why "Gargle"?
 
-The Go ecosystem is rife with puns. In short, GoArgParse -> GArg -> Gargle.
+The Go ecosystem is rife with really bad puns. In short, GoArgParse -> GArg -> Gargle.
 
 ## Alternatives
 
